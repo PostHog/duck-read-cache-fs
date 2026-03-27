@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y ninja-build libcurl4-openssl-dev libssl-dev
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install ninja
+          fi
+
+      - name: Build (debug)
+        run: GEN=ninja make debug
+
+      - name: Run unit tests
+        run: >
+          ./build/debug/extension/cache_httpfs/test/unittest/unittest_cache_httpfs
+          "~[on-disk cache filesystem test]~[disk cache validation test]~[multi-directory disk cache]~[extension config test]~[disk_cache_util]"
